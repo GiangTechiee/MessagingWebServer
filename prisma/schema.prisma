@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Users {
+  userId          String    @id @default(cuid())
+  username        String    @unique @db.VarChar(50)
+  email           String    @unique @db.VarChar(100)
+  password        String    @db.VarChar(255)
+  fullName        String    @db.VarChar(50)
+  avatar          String?   @db.VarChar(255)
+  background      String?   @db.VarChar(255)
+  isActive        Boolean   @default(true)
+
+  // Email verification
+  isVerified      Boolean   @default(false)
+  verificationToken String?   @unique @db.VarChar(255)
+  verificationTokenExpires DateTime?
+
+  // Password reset
+  resetPasswordOTP String?   @unique @db.VarChar(6)
+  resetPasswordExpires DateTime?
+
+  role            UserRole  @default(USER)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  conversationsCreated Conversations[] @relation("Creator")
+  participants        Participants[]
+  messages            Messages[]      @relation("MessageSender")
+  sessions            Sessions[]
+  contacts            Contacts[]      @relation("UserContacts")
+  contactOf           Contacts[]      @relation("ContactOf")
+  notifications       Notifications[]
+  joinRequests        JoinRequests[]
+  respondedRequests   JoinRequests[]  @relation("RespondedBy")
+  sentFriendRequests  FriendRequests[] @relation("SentFriendRequests")
+  receivedFriendRequests FriendRequests[] @relation("ReceivedFriendRequests")
+
+  @@index([email])
+  @@index([isActive])
+  @@index([verificationToken])
+  @@index([resetPasswordOTP])
+}
+
+model Conversations {
+  conversationId  String           @id @default(cuid())
+  title           String?          @db.VarChar(100)
+  type            ConversationType @default(DIRECT)
+  creatorId       String
+  isPublic        Boolean          @default(false)
+  isActive        Boolean          @default(true)
+  groupAvatar     String?           @db.VarChar(255)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  creator         Users            @relation("Creator", fields: [creatorId], references: [userId], onDelete: Restrict)
+  participants    Participants[]
+  messages        Messages[]
+  joinRequests    JoinRequests[]
+
+  @@index([creatorId])
+  @@index([isActive])
+}
+
+model Participants {
+  participantId   BigInt          @id @default(autoincrement())
+  conversationId  String
+  userId          String
+  role            ParticipantRole @default(MEMBER)
+  joinedAt        DateTime        @default(now())
+  leftAt          DateTime?
+  isMuted         Boolean         @default(false)
+  lastReadAt      DateTime?
+
+  // Relations
+  conversation    Conversations   @relation(fields: [conversationId], references: [conversationId], onDelete: Cascade)
+  user            Users           @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([conversationId])
+  @@index([userId])
+}
+
+model Messages {
+  messageId       BigInt      @id @default(autoincrement())
+  conversationId  String
+  senderId        String
+  content         String?     @db.Text
+  messageType     MessageType @default(TEXT)
+  replyToMessageId BigInt?
+  isDeleted       Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  conversation    Conversations @relation(fields: [conversationId], references: [conversationId], onDelete: Cascade)
+  sender          Users         @relation("MessageSender", fields: [senderId], references: [userId], onDelete: Restrict)
+  replyTo         Messages?     @relation("ReplyTo", fields: [replyToMessageId], references: [messageId], onDelete: SetNull)
+  replies         Messages[]    @relation("ReplyTo")
+  attachments     Attachments[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@index([isDeleted])
+  @@index([replyToMessageId])
+}
+
+model Attachments {
+  attachmentId    BigInt   @id @default(autoincrement())
+  messageId       BigInt
+  fileName        String   @db.VarChar(255)
+  fileUrl         String   @db.VarChar(500)
+  size            Int?
+  fileType        FileType
+  thumbnailUrl    String?  @db.VarChar(500)
+  createdAt       DateTime @default(now())
+
+  // Relations
+  message         Messages @relation(fields: [messageId], references: [messageId], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+model Sessions {
+  sessionId       BigInt     @id @default(autoincrement())
+  userId          String
+  refreshToken    String?    @unique @db.VarChar(255)
+  isRevoked       Boolean    @default(false)
+  expiresAt       DateTime
+  createdAt       DateTime   @default(now())
+
+  // Relations
+  user            Users      @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Contacts {
+  contactId       BigInt   @id @default(autoincrement())
+  userId          String
+  friendId        String
+  isBlocked       Boolean  @default(false)
+  isFriend        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  // Relations
+  user            Users    @relation("UserContacts", fields: [userId], references: [userId], onDelete: Cascade)
+  contact         Users    @relation("ContactOf", fields: [friendId], references: [userId], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@index([isBlocked])
+  @@index([isFriend])
+}
+
+model FriendRequests {
+  friendRequestId BigInt        @id @default(autoincrement())
+  senderId        String
+  receiverId      String
+  status          RequestStatus @default(PENDING)
+  requestedAt     DateTime      @default(now())
+  respondedAt     DateTime?
+
+  // Relations
+  sender          Users         @relation("SentFriendRequests", fields: [senderId], references: [userId], onDelete: Cascade)
+  receiver        Users         @relation("ReceivedFriendRequests", fields: [receiverId], references: [userId], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+}
+
+model Notifications {
+  notificationId  BigInt           @id @default(autoincrement())
+  userId          String
+  title           String?          @db.VarChar(255)
+  message         String?          @db.Text
+  type            NotificationType @default(MESSAGE)
+  isRead          Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+
+  // Relations
+  user            Users            @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+}
+
+model JoinRequests {
+  joinRequestId   BigInt        @id @default(autoincrement())
+  conversationId  String
+  userId          String
+  status          RequestStatus @default(PENDING)
+  requestedAt     DateTime      @default(now())
+  respondedAt     DateTime?
+  respondedById   String?
+
+  // Relations
+  conversation    Conversations @relation(fields: [conversationId], references: [conversationId], onDelete: Cascade)
+  user            Users         @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  respondedBy     Users?        @relation("RespondedBy", fields: [respondedById], references: [userId], onDelete: SetNull)
+
+  @@unique([conversationId, userId])
+  @@index([conversationId])
+  @@index([userId])
+  @@index([status])
+}
+
+// Enums
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum ParticipantRole {
+  MEMBER
+  ADMIN
+  MODERATOR
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum MessageType {
+  TEXT
+  FILE
+}
+
+enum FileType {
+  IMAGE
+  VIDEO
+  AUDIO
+  PDF
+  DOCUMENT
+  OTHER
+}
+
+enum NotificationType {
+  MESSAGE
+  MENTION
+  GROUP_INVITE
+  FRIEND_REQUEST
+  OTHER
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
