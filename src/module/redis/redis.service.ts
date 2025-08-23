@@ -8,18 +8,46 @@ export class RedisService {
   private readonly logger = new Logger(RedisService.name);
 
   constructor(private configService: ConfigService) {
-    this.redisClient = new Redis({
-      host: this.configService.get('REDIS_HOST', 'localhost'),
-      port: this.configService.get('REDIS_PORT', 6379),
-      retryStrategy: (times) => Math.min(times * 50, 2000),
-    });
+    const nodeEnv = this.configService.get('NODE_ENV');
+    const isDevelopment = nodeEnv === 'development';
+
+    let redisConfig;
+
+    if (isDevelopment) {
+      // Development: sử dụng Redis local
+      redisConfig = {
+        host: this.configService.get('REDIS_HOST', 'localhost'),
+        port: this.configService.get('REDIS_PORT', 6379),
+        retryStrategy: (times) => Math.min(times * 50, 2000),
+      };
+      this.logger.log('Using local Redis for development');
+    } else {
+      // Production/Staging: sử dụng Redis URL (Redis Cloud)
+      const redisUrl = this.configService.get('REDIS_URL');
+      if (!redisUrl) {
+        throw new Error('REDIS_URL is required for production environment');
+      }
+      redisConfig = redisUrl;
+      this.logger.log('Using Redis Cloud for production');
+    }
+
+    this.redisClient = new Redis(redisConfig);
 
     this.redisClient.on('error', (error) => {
       this.logger.error(`Redis error: ${error.message}`);
     });
 
     this.redisClient.on('connect', () => {
-      this.logger.log('Connected to Redis');
+      const env = isDevelopment ? 'local Redis' : 'Redis Cloud';
+      this.logger.log(`Connected to ${env}`);
+    });
+
+    this.redisClient.on('ready', () => {
+      this.logger.log('Redis client ready');
+    });
+
+    this.redisClient.on('reconnecting', () => {
+      this.logger.warn('Redis reconnecting...');
     });
   }
 
@@ -70,6 +98,26 @@ export class RedisService {
     } catch (error) {
       this.logger.error(`Failed to get list ${key}: ${error.message}`);
       return [];
+    }
+  }
+
+  async exists(key: string): Promise<boolean> {
+    try {
+      const result = await this.redisClient.exists(key);
+      return result === 1;
+    } catch (error) {
+      this.logger.error(`Failed to check key existence ${key}: ${error.message}`);
+      return false;
+    }
+  }
+
+  async expire(key: string, ttlSeconds: number): Promise<void> {
+    try {
+      await this.redisClient.expire(key, ttlSeconds);
+      this.logger.debug(`Set expiration for key ${key}: ${ttlSeconds}s`);
+    } catch (error) {
+      this.logger.error(`Failed to set expiration for key ${key}: ${error.message}`);
+      throw new Error(`Redis expire error: ${error.message}`);
     }
   }
 
