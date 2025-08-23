@@ -30,10 +30,7 @@ export class AuthController {
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
     const result = await this.authService.register(registerDto);
-    return {
-      message: 'Registration successful. Please verify your email.',
-      user: result.user,
-    };
+    return result.user;
   }
 
   @Public()
@@ -52,10 +49,7 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    return {
-      message: 'Login successful',
-      user,
-    };
+    return user;
   }
 
   @Public()
@@ -63,7 +57,8 @@ export class AuthController {
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     await this.authService.forgotPassword(forgotPasswordDto);
     return {
-      message: 'Password reset OTP sent to your email',
+      message:
+        'Password reset OTP sent to your email successfully. Please check your email.',
     };
   }
 
@@ -72,7 +67,8 @@ export class AuthController {
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     await this.authService.resetPassword(resetPasswordDto);
     return {
-      message: 'Password reset successful',
+      message:
+        'Password has been reset successfully. You can now login with your new password.',
     };
   }
 
@@ -82,7 +78,8 @@ export class AuthController {
     const token = req.params.token;
     await this.authService.verifyEmail(token);
     return {
-      message: 'Email verified successfully',
+      message:
+        'Email has been verified successfully. Your account is now active.',
     };
   }
 
@@ -104,7 +101,6 @@ export class AuthController {
     });
 
     return {
-      message: 'Token refreshed successfully',
       accessToken,
       user,
     };
@@ -116,7 +112,7 @@ export class AuthController {
     await this.authService.logout(refreshToken);
     res.clearCookie('refreshToken');
     return {
-      message: 'Logout successful',
+      message: 'Logout successful. See you soon!',
     };
   }
 
@@ -136,7 +132,8 @@ export class AuthController {
     await this.authService.logoutAll(session.userId);
     res.clearCookie('refreshToken');
     return {
-      message: 'Logged out from all devices successfully',
+      message:
+        'Successfully logged out from all devices. All sessions have been terminated.',
     };
   }
 }

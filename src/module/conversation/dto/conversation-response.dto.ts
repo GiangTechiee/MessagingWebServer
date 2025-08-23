@@ -10,9 +10,13 @@ export class ConversationResponseDto {
   groupAvatar: string;
   createdAt: Date;
   updatedAt: Date;
+  lastMessageAt?: Date;
+  hasUnreadMessages?: boolean;
+  unreadCount?: number;
   oppositeUser?: {
     userId: string;
     username: string;
+    fullName: string;
     avatar: string | null;
   }; // Chỉ dùng cho type DIRECT
 }

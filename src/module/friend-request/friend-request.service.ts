@@ -108,7 +108,7 @@ export class FriendRequestService {
       data: {
         userId: receiverId,
         title: 'New Friend Request',
-        message: `You received a friend request from ${sender.username}`,
+        message: `You received a friend request from ${sender.username} (ID: ${friendRequest.friendRequestId})`,
         type: 'FRIEND_REQUEST',
       },
     });
@@ -176,7 +176,7 @@ export class FriendRequestService {
           userId: friendRequest.senderId,
           title: 'Friend Request Accepted',
           message: `${friendRequest.receiver.username} accepted your friend request`,
-          type: 'FRIEND_REQUEST',
+          type: 'FRIEND_REQUEST_ACCEPTED',
         },
       });
     } else if (status === 'REJECTED') {
@@ -195,7 +195,7 @@ export class FriendRequestService {
           userId: friendRequest.senderId,
           title: 'Friend Request Rejected',
           message: `${friendRequest.receiver.username} rejected your friend request`,
-          type: 'FRIEND_REQUEST',
+          type: 'FRIEND_REQUEST_REJECTED',
         },
       });
     }

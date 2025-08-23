@@ -43,6 +43,8 @@ model Users {
   sentFriendRequests  FriendRequests[] @relation("SentFriendRequests")
   receivedFriendRequests FriendRequests[] @relation("ReceivedFriendRequests")
 
+  @@index([fullName])
+  @@index([username])
   @@index([email])
   @@index([isActive])
   @@index([verificationToken])
@@ -93,7 +95,7 @@ model Messages {
   messageId       BigInt      @id @default(autoincrement())
   conversationId  String
   senderId        String
-  content         String?     @db.Text
+  content         String?     @db.VarChar(255)
   messageType     MessageType @default(TEXT)
   replyToMessageId BigInt?
   isDeleted       Boolean     @default(false)
@@ -252,6 +254,8 @@ enum NotificationType {
   MENTION
   GROUP_INVITE
   FRIEND_REQUEST
+  FRIEND_REQUEST_ACCEPTED
+  FRIEND_REQUEST_REJECTED
   OTHER
 }
 

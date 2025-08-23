@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { RedisService } from '../redis/redis.service';
-import { MessageResponseDto } from '../message/dto/message-response.dto';
-import { ConversationResponseDto } from './dto/conversation-response.dto';
+import { RedisService } from '../../redis/redis.service';
+import { MessageResponseDto } from '../../message/dto/message-response.dto';
+import { ConversationResponseDto } from '../dto/conversation-response.dto';
 
 @Injectable()
 export class ConversationCacheService {

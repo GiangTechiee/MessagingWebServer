@@ -21,16 +21,16 @@ export class SocketGateway {
   async handleConnection(client: Socket) {
     const userId = client.handshake.query.userId as string;
     if (userId) {
-      await this.redis.set(`user:${userId}:status`, { isOnline: true }, 3600);
-      this.server.emit('userStatus', { userId, isOnline: true });
+      await this.redis.set(`user:${userId}:status`, { isOnline: true, isActive: false }, 3600);
+      this.server.emit('userStatus', { userId, isOnline: true, isActive: false });
     }
   }
 
   async handleDisconnect(client: Socket) {
     const userId = client.handshake.query.userId as string;
     if (userId) {
-      await this.redis.set(`user:${userId}:status`, { isOnline: false }, 3600);
-      this.server.emit('userStatus', { userId, isOnline: false });
+      await this.redis.set(`user:${userId}:status`, { isOnline: false, isActive: false }, 3600);
+      this.server.emit('userStatus', { userId, isOnline: false, isActive: false });
     }
   }
 
@@ -41,6 +41,10 @@ export class SocketGateway {
     @MessageBody() data: any,
   ) {
     const conversationId = data.conversationId || data;
+    if (typeof conversationId !== 'string' || !conversationId) {
+      client.emit('error', { message: 'Invalid conversationId' });
+      return;
+    }
     await client.join(conversationId);
     client.emit('roomJoined', { conversationId });
     console.log(`User joined room: ${conversationId}`);
@@ -64,12 +68,35 @@ export class SocketGateway {
     this.server.to(conversationId).emit('typing', { userId, isTyping });
   }
 
-  // New method to notify about new messages
+  // Thêm sự kiện xử lý hoạt động của người dùng
+  @SubscribeMessage('userActivity')
+  async handleUserActivity(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { userId: string },
+  ) {
+    const { userId } = data;
+    if (!userId) {
+      client.emit('error', { message: 'Invalid userId' });
+      return;
+    }
+    // Cập nhật trạng thái hoạt động trong Redis với TTL ngắn (10 giây)
+    await this.redis.set(`user:${userId}:status`, { isOnline: true, isActive: true }, 60);
+    this.server.emit('userStatus', { userId, isOnline: true, isActive: true });
+    
+    // Nếu không có hoạt động tiếp theo, trạng thái sẽ tự động hết hạn và chuyển về isActive: false
+    setTimeout(async () => {
+      const status = await this.redis.get<{ isOnline: boolean; isActive: boolean }>(`user:${userId}:status`);
+      if (!status || !status.isActive) {
+        await this.redis.set(`user:${userId}:status`, { isOnline: true, isActive: false }, 3600);
+        this.server.emit('userStatus', { userId, isOnline: true, isActive: false });
+      }
+    }, 10000); // Đồng bộ với TTL của Redis
+  }
+
   notifyNewMessage(conversationId: string, message: MessageResponseDto) {
     this.server.to(conversationId).emit('newMessage', message);
   }
 
-  // New method to notify about updated messages
   notifyMessageUpdated(conversationId: string, message: MessageResponseDto) {
     this.server.to(conversationId).emit('messageUpdated', message);
   }
@@ -100,13 +127,6 @@ export class SocketGateway {
     this.server.to(conversationId).emit('participantUpdated', participant);
   }
 
-  /**
-   * Thông báo khi một participant bị xóa/rời khỏi conversation
-   * @param conversationId ID của conversation
-   * @param removedUserId ID của user bị xóa/rời
-   * @param removedByUserId ID của user thực hiện hành động xóa (optional)
-   * @param reason Lý do: 'left' (tự rời) hoặc 'removed' (bị kick)
-   */
   notifyParticipantRemoved(
     conversationId: string,
     removedUserId: string,
@@ -121,10 +141,7 @@ export class SocketGateway {
       timestamp: new Date().toISOString(),
     };
 
-    // Thông báo tới tất cả participants còn lại trong conversation
     this.server.to(conversationId).emit('participantRemoved', payload);
-
-    // Thông báo riêng tới user bị xóa/rời (nếu họ vẫn online)
     this.server.to(removedUserId).emit('participantRemoved', {
       ...payload,
       message:
@@ -149,8 +166,8 @@ export class SocketGateway {
     this.server.to(conversationId).emit('joinRequestUpdated', joinRequest);
   }
 
-  notifyUserStatus(userId: string, isOnline: boolean) {
-    this.server.emit('userStatus', { userId, isOnline });
+  notifyUserStatus(userId: string, isOnline: boolean, isActive: boolean = false) {
+    this.server.emit('userStatus', { userId, isOnline, isActive });
   }
 
   notifyTypingStatus(

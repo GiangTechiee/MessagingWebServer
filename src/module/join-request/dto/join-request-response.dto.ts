@@ -14,4 +14,15 @@ export class JoinRequestResponseDto {
   respondedAt?: Date | null;
 
   respondedById?: string | null;
+
+  user?: {
+    username: string;
+    fullName: string;
+    avatar?: string | null;
+  };
+
+  conversation?: {
+    title?: string | null;
+    groupAvatar?: string | null;
+  };
 }

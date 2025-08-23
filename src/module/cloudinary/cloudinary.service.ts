@@ -28,6 +28,7 @@ export class CloudinaryService {
         allowed_formats: [
           'jpg',
           'png',
+          'avif',
           'gif',
           'webp',
           'mp4',

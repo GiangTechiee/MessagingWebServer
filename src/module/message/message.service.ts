@@ -10,12 +10,11 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { CreateMessageWithFilesDto } from './dto/create-message-with-files.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
-import { ConversationCacheService } from '../conversation/conversation-cache.service';
+import { ConversationCacheService } from '../conversation/services/conversation-cache.service';
 import { MessageType, FileType } from '@prisma/client';
 
 @Injectable()
 export class MessageService {
-  // Giới hạn dung lượng theo gói miễn phí Cloudinary (10MB)
   private readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
   private readonly MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB cho video
   private readonly MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB cho image
@@ -28,77 +27,93 @@ export class MessageService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private createMessageResponse(message: any, attachments?: any[]): MessageResponseDto {
+  private createMessageResponse(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    message: any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    attachments?: any[],
+  ): MessageResponseDto {
     return {
       messageId: message.messageId.toString(),
       conversationId: message.conversationId,
       senderId: message.senderId,
+      senderUsername: message.sender?.username || 'Unknown',
+      senderAvatar: message.sender?.avatar || null,
       content: message.content,
       messageType: message.messageType,
       replyToMessageId: message.replyToMessageId
         ? message.replyToMessageId.toString()
         : undefined,
+      replyToContent: message.replyTo?.content || undefined,
+      replyToUsername: message.replyTo?.sender?.username || undefined, // Thêm username của người gửi tin nhắn được reply
       isDeleted: message.isDeleted,
       createdAt: message.createdAt,
       updatedAt: message.updatedAt,
       attachments: attachments
-      ? attachments.map(attachment => ({
-          attachmentId: attachment.attachmentId.toString(), 
-          fileName: attachment.fileName,
-          fileUrl: attachment.fileUrl,
-          size: attachment.size,
-          fileType: attachment.fileType,
-          thumbnailUrl: attachment.thumbnailUrl,
-          createdAt: attachment.createdAt,
-        }))
-      : [],
+        ? attachments.map((attachment) => ({
+            attachmentId: attachment.attachmentId.toString(),
+            fileName: attachment.fileName,
+            fileUrl: attachment.fileUrl,
+            size: attachment.size,
+            fileType: attachment.fileType,
+            thumbnailUrl: attachment.thumbnailUrl,
+            createdAt: attachment.createdAt,
+          }))
+        : [],
     };
   }
 
   private validateFileSize(files: Express.Multer.File[]): void {
     const totalSize = files.reduce((sum, file) => sum + file.size, 0);
-    
+
     if (totalSize > this.MAX_TOTAL_FILES_SIZE) {
       throw new BadRequestException(
-        `Total files size exceeds limit of ${this.MAX_TOTAL_FILES_SIZE / (1024 * 1024)}MB`
+        `Total files size exceeds limit of ${this.MAX_TOTAL_FILES_SIZE / (1024 * 1024)}MB`,
       );
     }
 
     files.forEach((file) => {
       if (file.size > this.MAX_FILE_SIZE) {
         throw new BadRequestException(
-          `File ${file.originalname} exceeds size limit of ${this.MAX_FILE_SIZE / (1024 * 1024)}MB`
+          `File ${file.originalname} exceeds size limit of ${this.MAX_FILE_SIZE / (1024 * 1024)}MB`,
         );
       }
 
-      // Kiểm tra riêng cho video và image
-      if (file.mimetype.startsWith('video/') && file.size > this.MAX_VIDEO_SIZE) {
+      if (
+        file.mimetype.startsWith('video/') &&
+        file.size > this.MAX_VIDEO_SIZE
+      ) {
         throw new BadRequestException(
-          `Video ${file.originalname} exceeds size limit of ${this.MAX_VIDEO_SIZE / (1024 * 1024)}MB`
+          `Video ${file.originalname} exceeds size limit of ${this.MAX_VIDEO_SIZE / (1024 * 1024)}MB`,
         );
       }
 
-      if (file.mimetype.startsWith('image/') && file.size > this.MAX_IMAGE_SIZE) {
+      if (
+        file.mimetype.startsWith('image/') &&
+        file.size > this.MAX_IMAGE_SIZE
+      ) {
         throw new BadRequestException(
-          `Image ${file.originalname} exceeds size limit of ${this.MAX_IMAGE_SIZE / (1024 * 1024)}MB`
+          `Image ${file.originalname} exceeds size limit of ${this.MAX_IMAGE_SIZE / (1024 * 1024)}MB`,
         );
       }
     });
   }
 
-  private determineMessageType(content?: string, files?: Express.Multer.File[]): MessageType {
-    // Nếu có files thì là FILE message
+  private determineMessageType(
+    content?: string,
+    files?: Express.Multer.File[],
+  ): MessageType {
     if (files && files.length > 0) {
       return MessageType.FILE;
     }
-    
-    // Nếu chỉ có text thì là TEXT message
+
     if (content && content.trim()) {
       return MessageType.TEXT;
     }
-    
-    throw new BadRequestException('Message must contain either text content or files');
+
+    throw new BadRequestException(
+      'Message must contain either text content or files',
+    );
   }
 
   private mapMimeTypeToFileType(mimeType: string): FileType {
@@ -118,14 +133,17 @@ export class MessageService {
     }
   }
 
-  private getCloudinaryConfig(mimeType: string): { resourceType: 'image' | 'video' | 'raw', folder: string } {
+  private getCloudinaryConfig(mimeType: string): {
+    resourceType: 'image' | 'video' | 'raw';
+    folder: string;
+  } {
     switch (true) {
       case mimeType.startsWith('image/'):
         return { resourceType: 'image', folder: 'images' };
       case mimeType.startsWith('video/'):
         return { resourceType: 'video', folder: 'videos' };
       case mimeType.startsWith('audio/'):
-        return { resourceType: 'video', folder: 'audio' }; // Audio treated as video in Cloudinary
+        return { resourceType: 'video', folder: 'audio' };
       default:
         return { resourceType: 'raw', folder: 'documents' };
     }
@@ -135,9 +153,9 @@ export class MessageService {
     userId: string,
     createMessageDto: CreateMessageDto,
   ): Promise<MessageResponseDto> {
-    const { conversationId, content, messageType, replyToMessageId } = createMessageDto;
+    const { conversationId, content, messageType, replyToMessageId } =
+      createMessageDto;
 
-    // Validate participant
     const participant = await this.prisma.participants.findFirst({
       where: { conversationId, userId, leftAt: null },
     });
@@ -148,7 +166,6 @@ export class MessageService {
       );
     }
 
-    // Validate conversation
     const conversation = await this.prisma.conversations.findUnique({
       where: { conversationId, isActive: true },
     });
@@ -157,7 +174,6 @@ export class MessageService {
       throw new BadRequestException('Conversation not found or inactive.');
     }
 
-    // Validate replyToMessageId if provided
     if (replyToMessageId) {
       const replyMessage = await this.prisma.messages.findUnique({
         where: { messageId: BigInt(replyToMessageId) },
@@ -167,28 +183,37 @@ export class MessageService {
       }
     }
 
-    // Determine message type
     const finalMessageType = messageType || this.determineMessageType(content);
 
-    // Create message
     const message = await this.prisma.messages.create({
       data: {
         conversationId,
         senderId: userId,
         content,
         messageType: finalMessageType,
-        replyToMessageId: replyToMessageId ? BigInt(replyToMessageId) : undefined,
+        replyToMessageId: replyToMessageId
+          ? BigInt(replyToMessageId)
+          : undefined,
         isDeleted: false,
         createdAt: new Date(),
+      },
+      include: {
+        sender: { select: { userId: true, username: true, avatar: true } },
+        replyTo: { 
+          select: { 
+            content: true,
+            sender: { select: { username: true } } // Thêm sender để lấy username của tin nhắn được reply
+          } 
+        },
       },
     });
 
     const messageResponse = this.createMessageResponse(message);
 
-    // Cache recent messages
-    await this.cacheService.cacheRecentMessages(conversationId, [messageResponse]);
+    await this.cacheService.cacheRecentMessages(conversationId, [
+      messageResponse,
+    ]);
 
-    // Notify participants via WebSocket
     this.socketGateway.notifyNewMessage(conversationId, messageResponse);
 
     return messageResponse;
@@ -198,19 +223,19 @@ export class MessageService {
     userId: string,
     createMessageWithFilesDto: CreateMessageWithFilesDto,
   ): Promise<MessageResponseDto> {
-    const { conversationId, content, replyToMessageId, files } = createMessageWithFilesDto;
+    const { conversationId, content, replyToMessageId, files } =
+      createMessageWithFilesDto;
 
-    // Validate có ít nhất content hoặc files
     if (!content?.trim() && (!files || files.length === 0)) {
-      throw new BadRequestException('Message must contain either text content or files');
+      throw new BadRequestException(
+        'Message must contain either text content or files',
+      );
     }
 
-    // Validate file sizes if files exist
     if (files && files.length > 0) {
       this.validateFileSize(files);
     }
 
-    // Validate participant
     const participant = await this.prisma.participants.findFirst({
       where: { conversationId, userId, leftAt: null },
     });
@@ -221,7 +246,6 @@ export class MessageService {
       );
     }
 
-    // Validate conversation
     const conversation = await this.prisma.conversations.findUnique({
       where: { conversationId, isActive: true },
     });
@@ -230,7 +254,6 @@ export class MessageService {
       throw new BadRequestException('Conversation not found or inactive.');
     }
 
-    // Validate replyToMessageId if provided
     if (replyToMessageId) {
       const replyMessage = await this.prisma.messages.findUnique({
         where: { messageId: BigInt(replyToMessageId) },
@@ -240,30 +263,40 @@ export class MessageService {
       }
     }
 
-    // Determine message type
     const messageType = this.determineMessageType(content, files);
 
-    // Create message first
     const message = await this.prisma.messages.create({
       data: {
         conversationId,
         senderId: userId,
         content: content || null,
         messageType,
-        replyToMessageId: replyToMessageId ? BigInt(replyToMessageId) : undefined,
+        replyToMessageId: replyToMessageId
+          ? BigInt(replyToMessageId)
+          : undefined,
         isDeleted: false,
         createdAt: new Date(),
+      },
+      include: {
+        sender: { select: { userId: true, username: true, avatar: true } },
+        replyTo: { 
+          select: { 
+            content: true,
+            sender: { select: { username: true } } // Thêm sender để lấy username của tin nhắn được reply
+          } 
+        },
       },
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let attachments: any[] = [];
 
-    // Upload files to Cloudinary and create attachments if files exist
     if (files && files.length > 0) {
       const uploadPromises = files.map(async (file) => {
-        const { resourceType, folder } = this.getCloudinaryConfig(file.mimetype);
-        
+        const { resourceType, folder } = this.getCloudinaryConfig(
+          file.mimetype,
+        );
+
         try {
           const uploadResult = await this.cloudinaryService.uploadFile(
             file,
@@ -283,14 +316,15 @@ export class MessageService {
           });
         } catch (error) {
           console.error(`Failed to upload file ${file.originalname}:`, error);
-          throw new BadRequestException(`Failed to upload file: ${file.originalname}`);
+          throw new BadRequestException(
+            `Failed to upload file: ${file.originalname}`,
+          );
         }
       });
 
       try {
         attachments = await Promise.all(uploadPromises);
       } catch (error) {
-        // Rollback: delete the created message if file upload fails
         await this.prisma.messages.delete({
           where: { messageId: message.messageId },
         });
@@ -300,10 +334,10 @@ export class MessageService {
 
     const messageResponse = this.createMessageResponse(message, attachments);
 
-    // Cache recent messages
-    await this.cacheService.cacheRecentMessages(conversationId, [messageResponse]);
+    await this.cacheService.cacheRecentMessages(conversationId, [
+      messageResponse,
+    ]);
 
-    // Notify participants via WebSocket
     this.socketGateway.notifyNewMessage(conversationId, messageResponse);
 
     return messageResponse;
@@ -315,7 +349,6 @@ export class MessageService {
     limit: number = 20,
     offset: number = 0,
   ): Promise<MessageResponseDto[]> {
-    // Validate participant
     const participant = await this.prisma.participants.findFirst({
       where: { conversationId, userId, leftAt: null },
     });
@@ -326,13 +359,22 @@ export class MessageService {
       );
     }
 
-    // Check cached messages first
-    const cachedMessages = await this.cacheService.getRecentMessages(conversationId);
-    if (cachedMessages.length >= limit) {
-      return cachedMessages.slice(offset, offset + limit);
+    if (offset === 0) {
+      const cachedMessages =
+        await this.cacheService.getRecentMessages(conversationId);
+      if (cachedMessages.length >= limit) {
+        const hasCompleteInfo = cachedMessages.every(
+          (msg) => msg.senderUsername && 
+                   msg.senderId && 
+                   (msg.replyToMessageId ? (msg.replyToContent !== undefined && msg.replyToUsername !== undefined) : true),
+        );
+
+        if (hasCompleteInfo) {
+          return cachedMessages.slice(0, limit);
+        }
+      }
     }
 
-    // Fetch messages from database with attachments
     const messages = await this.prisma.messages.findMany({
       where: { conversationId, isDeleted: false },
       orderBy: { createdAt: 'desc' },
@@ -341,6 +383,12 @@ export class MessageService {
       include: {
         sender: { select: { userId: true, username: true, avatar: true } },
         attachments: true,
+        replyTo: { 
+          select: { 
+            content: true,
+            sender: { select: { username: true } } // Thêm sender để lấy username của tin nhắn được reply
+          } 
+        },
       },
     });
 
@@ -348,9 +396,11 @@ export class MessageService {
       this.createMessageResponse(message, message.attachments),
     );
 
-    // Cache fetched messages
-    if (messageResponses.length > 0) {
-      await this.cacheService.cacheRecentMessages(conversationId, messageResponses);
+    if (offset === 0 && messageResponses.length > 0) {
+      await this.cacheService.cacheRecentMessages(
+        conversationId,
+        messageResponses,
+      );
     }
 
     return messageResponses;
@@ -361,12 +411,17 @@ export class MessageService {
     userId: string,
     updateMessageDto: UpdateMessageDto,
   ): Promise<MessageResponseDto> {
-    // Find message
     const message = await this.prisma.messages.findUnique({
       where: { messageId: BigInt(messageId) },
-      include: { 
+      include: {
         conversation: true,
         attachments: true,
+        replyTo: { 
+          select: { 
+            content: true,
+            sender: { select: { username: true } } // Thêm sender để lấy username của tin nhắn được reply
+          } 
+        },
       },
     });
 
@@ -374,19 +429,16 @@ export class MessageService {
       throw new BadRequestException('Message not found.');
     }
 
-    // Validate sender
     if (message.senderId !== userId) {
       throw new ForbiddenException('You can only update your own messages.');
     }
 
-    // Validate conversation
     if (!message.conversation.isActive) {
       throw new BadRequestException(
         'Cannot update message in inactive conversation.',
       );
     }
 
-    // Update message
     const updatedMessage = await this.prisma.messages.update({
       where: { messageId: BigInt(messageId) },
       data: {
@@ -394,15 +446,30 @@ export class MessageService {
         isDeleted: updateMessageDto.isDeleted,
         updatedAt: new Date(),
       },
+      include: {
+        sender: { select: { userId: true, username: true, avatar: true } },
+        replyTo: { 
+          select: { 
+            content: true,
+            sender: { select: { username: true } } // Thêm sender để lấy username của tin nhắn được reply
+          } 
+        },
+      },
     });
 
-    const messageResponse = this.createMessageResponse(updatedMessage, message.attachments);
+    const messageResponse = this.createMessageResponse(
+      updatedMessage,
+      message.attachments,
+    );
 
-    // Cache updated message
-    await this.cacheService.cacheRecentMessages(message.conversationId, [messageResponse]);
+    await this.cacheService.cacheRecentMessages(message.conversationId, [
+      messageResponse,
+    ]);
 
-    // Notify participants via WebSocket
-    this.socketGateway.notifyMessageUpdated(message.conversationId, messageResponse);
+    this.socketGateway.notifyMessageUpdated(
+      message.conversationId,
+      messageResponse,
+    );
 
     return messageResponse;
   }

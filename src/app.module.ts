@@ -17,6 +17,8 @@ import { MessageModule } from './module/message/message.module';
 import { UserModule } from './module/user/user.module';
 import { FriendRequestModule } from './module/friend-request/friend-request.module';
 import { CloudinaryModule } from './module/cloudinary/cloudinary.module';
+import { ContactsModule } from './module/contact/contact.module';
+import { NotificationModule } from './module/notification/notification.module';
 
 
 @Module({
@@ -40,6 +42,8 @@ import { CloudinaryModule } from './module/cloudinary/cloudinary.module';
     FriendRequestModule,
     JoinRequestModule,
     CloudinaryModule,
+    ContactsModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

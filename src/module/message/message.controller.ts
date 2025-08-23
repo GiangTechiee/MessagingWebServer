@@ -56,7 +56,7 @@ export class MessageController {
   async getMessages(
     @GetUser() user: { userId: string },
     @Param('conversationId') conversationId: string,
-    @Query('limit') limit: string = '50',
+    @Query('limit') limit: string = '5',
     @Query('offset') offset: string = '0',
   ): Promise<MessageResponseDto[]> {
     const parsedLimit = parseInt(limit, 10);

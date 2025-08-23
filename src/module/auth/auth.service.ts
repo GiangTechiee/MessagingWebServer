@@ -105,6 +105,7 @@ export class AuthService {
         username,
         password: hashedPassword,
         fullName: fullName,
+        avatar: '/avatars/default-avatar.jpg',
         verificationToken,
         verificationTokenExpires,
         role: UserRole.USER,
@@ -218,6 +219,7 @@ export class AuthService {
         email: user.email,
         fullName: user.fullName,
         role: user.role,
+        avatar: user.avatar,
         accessToken,
       },
     };

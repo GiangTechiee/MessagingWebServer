@@ -4,6 +4,8 @@ import {
   Patch,
   Post,
   Body,
+  Param,
+  Query,
   UsePipes,
   ValidationPipe,
   NotFoundException,
@@ -12,6 +14,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  InternalServerErrorException
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -35,6 +38,75 @@ export class UserController {
       throw error instanceof NotFoundException
         ? error
         : new NotFoundException('User not found');
+    }
+  }
+
+  @Get()
+  async getUsers(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+  ): Promise<UserResponseDto[]> {
+    try {
+      const pageNum = parseInt(page, 10);
+      const limitNum = parseInt(limit, 10);
+
+      if (isNaN(pageNum) || pageNum < 1) {
+        throw new BadRequestException('Page must be a positive integer');
+      }
+      if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+        throw new BadRequestException('Limit must be between 1 and 100');
+      }
+
+      return await this.userService.getUsers(pageNum, limitNum);
+    } catch (error) {
+      throw error instanceof BadRequestException
+        ? error
+        : new InternalServerErrorException('Failed to fetch users');
+    }
+  }
+
+  @Get('search')
+  async searchUsers(
+    @Query('query') query: string,
+    @Query('skip') skip: string = '0',
+    @Query('limit') limit: string = '20',
+  ): Promise<UserResponseDto[]> {
+    try {
+      if (!query || query.trim().length === 0) {
+        throw new BadRequestException('Query parameter is required');
+      }
+
+      // Kiểm tra độ dài query tối thiểu để tránh quá nhiều kết quả
+      if (query.trim().length < 2) {
+        throw new BadRequestException('Query must be at least 2 characters long');
+      }
+
+      const skipNum = parseInt(skip, 10);
+      const limitNum = parseInt(limit, 10);
+
+      if (isNaN(skipNum) || skipNum < 0) {
+        throw new BadRequestException('Skip must be a non-negative integer');
+      }
+      if (isNaN(limitNum) || limitNum < 1 || limitNum > 50) { // Giảm limit tối đa xuống 50
+        throw new BadRequestException('Limit must be between 1 and 50');
+      }
+
+      return await this.userService.searchUsers(query.trim(), skipNum, limitNum);
+    } catch (error) {
+      throw error instanceof BadRequestException
+        ? error
+        : new InternalServerErrorException('Failed to search users');
+    }
+  }
+
+  @Get(':userId')
+  async getUserById(@Param('userId') userId: string): Promise<UserResponseDto> {
+    try {
+      return await this.userService.getUserById(userId);
+    } catch (error) {
+      throw error instanceof NotFoundException
+        ? error
+        : new NotFoundException('Người dùng không tồn tại');
     }
   }
 

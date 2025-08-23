@@ -24,7 +24,7 @@ export class JoinRequestService {
   async createJoinRequest(
     createJoinRequestDto: CreateJoinRequestDto,
     userId: string
-  ): Promise<JoinRequestResponseDto> {
+  ): Promise<JoinRequestResponseDto | { message: string; participant: ParticipantResponseDto }> {
     const { conversationId } = createJoinRequestDto;
 
     // Kiểm tra conversation
@@ -39,13 +39,6 @@ export class JoinRequestService {
     if (conversation.type !== 'GROUP') {
       throw new BadRequestException(
         'Join requests are only available for group conversations.',
-      );
-    }
-
-    // Kiểm tra xem conversation có phải là public không - chỉ group public mới cần join request
-    if (conversation.isPublic) {
-      throw new BadRequestException(
-        'This group is private. You can join directly without a request.',
       );
     }
 
@@ -65,6 +58,49 @@ export class JoinRequestService {
       throw new BadRequestException('User is already a participant.');
     }
 
+    // Nếu là nhóm PUBLIC - tự động join luôn
+    if (conversation.isPublic) {
+      const newParticipant = await this.prisma.participants.create({
+        data: {
+          conversationId,
+          userId,
+          role: ParticipantRole.MEMBER,
+          joinedAt: new Date(),
+        },
+        include: { user: true, conversation: true },
+      });
+
+      const participantResponse: ParticipantResponseDto = {
+        participantId: newParticipant.participantId.toString(),
+        conversationId: newParticipant.conversationId,
+        userId: newParticipant.userId,
+        role: newParticipant.role,
+        joinedAt: newParticipant.joinedAt,
+        leftAt: newParticipant.leftAt,
+        isMuted: newParticipant.isMuted,
+        lastReadAt: newParticipant.lastReadAt,
+      };
+
+      // Thông báo qua WebSocket về participant mới
+      this.socketGateway.notifyParticipantAdded(conversationId, participantResponse);
+
+      // Tạo notification cho user
+      await this.prisma.notifications.create({
+        data: {
+          userId,
+          title: 'Joined Group Successfully',
+          message: `You have successfully joined ${conversation.title || 'the group'}`,
+          type: 'GROUP_INVITE',
+        },
+      });
+
+      return {
+        message: 'Successfully joined the public group',
+        participant: participantResponse,
+      };
+    }
+
+    // Nếu là nhóm PRIVATE - tạo join request
     // Kiểm tra xem đã có join request đang chờ xử lý chưa
     const existingRequest = await this.prisma.joinRequests.findFirst({
       where: { conversationId, userId, status: RequestStatus.PENDING },
@@ -134,6 +170,57 @@ export class JoinRequestService {
     return joinRequestResponse;
   }
 
+  async getJoinRequestsForUser(userId: string): Promise<JoinRequestResponseDto[]> {
+    // Lấy danh sách các conversation mà user là admin hoặc moderator
+    const userAdminConversations = await this.prisma.participants.findMany({
+      where: {
+        userId,
+        role: { in: [ParticipantRole.ADMIN, ParticipantRole.MODERATOR] },
+        leftAt: null,
+      },
+      select: { conversationId: true },
+    });
+
+    if (userAdminConversations.length === 0) {
+      return [];
+    }
+
+    const conversationIds = userAdminConversations.map(p => p.conversationId);
+
+    // Lấy tất cả join requests của các conversation mà user là admin/moderator
+    const joinRequests = await this.prisma.joinRequests.findMany({
+      where: {
+        conversationId: { in: conversationIds },
+        status: RequestStatus.PENDING,
+      },
+      include: { 
+        user: { select: { userId: true, username: true, fullName: true, avatar: true } },
+        conversation: { select: { conversationId: true, title: true, groupAvatar: true } }
+      },
+      orderBy: { requestedAt: 'desc' },
+    });
+
+    return joinRequests.map((jr) => ({
+      joinRequestId: jr.joinRequestId.toString(),
+      conversationId: jr.conversationId,
+      userId: jr.userId,
+      status: jr.status,
+      requestedAt: jr.requestedAt,
+      respondedAt: jr.respondedAt,
+      respondedById: jr.respondedById,
+      // Thêm thông tin bổ sung để frontend hiển thị
+      user: {
+        username: jr.user.username,
+        fullName: jr.user.fullName,
+        avatar: jr.user.avatar,
+      },
+      conversation: {
+        title: jr.conversation.title,
+        groupAvatar: jr.conversation.groupAvatar,
+      },
+    }));
+  }
+
   async getJoinRequests(
     conversationId: string,
     userId: string,
@@ -163,7 +250,10 @@ export class JoinRequestService {
 
     const joinRequests = await this.prisma.joinRequests.findMany({
       where: { conversationId, status: RequestStatus.PENDING },
-      include: { user: true, conversation: true },
+      include: { 
+        user: { select: { userId: true, username: true, fullName: true, avatar: true } },
+        conversation: { select: { conversationId: true, title: true, groupAvatar: true } }
+      },
       orderBy: { requestedAt: 'desc' },
     });
 
@@ -176,6 +266,15 @@ export class JoinRequestService {
         requestedAt: jr.requestedAt,
         respondedAt: jr.respondedAt,
         respondedById: jr.respondedById,
+        user: {
+          username: jr.user.username,
+          fullName: jr.user.fullName,
+          avatar: jr.user.avatar,
+        },
+        conversation: {
+          title: jr.conversation.title,
+          groupAvatar: jr.conversation.groupAvatar,
+        },
       }),
     );
 
