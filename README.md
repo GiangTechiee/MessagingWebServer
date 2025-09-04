@@ -1,98 +1,167 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Chat Website System
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A real-time messaging web application built with modern technologies, featuring secure authentication and optimized performance.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🚀 Demo
 
-## Description
+**Live Demo**: [https://messaging-web-client.vercel.app](https://messaging-web-client.vercel.app)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 📋 Table of Contents
 
-## Project setup
+- [Overview](#overview)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Installation](#installation)
+- [Usage](#usage)
+- [API Documentation](#api-documentation)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
+- [License](#license)
 
+## 📖 Overview
+
+This chat website system is built using a client-server architecture with real-time messaging capabilities. The project demonstrates full-stack development skills with modern Node.js frameworks and database integration.
+
+## ✨ Features
+
+- 🔐 **Secure Authentication** - User registration and login with JWT tokens
+- 💬 **Real-time Messaging** - Instant chat using Socket.io
+- 📱 **Responsive Design** - Mobile-friendly interface with Tailwind CSS
+- ⚡ **High Performance** - Redis caching for optimized messaging
+- 🛡️ **API Security** - Protected routes and data validation
+- 💾 **Persistent Storage** - PostgreSQL database with proper schema design
+
+## 🛠️ Tech Stack
+
+### Backend
+- **Node.js** - JavaScript runtime
+- **NestJS** - Progressive Node.js framework
+- **Socket.io** - Real-time bidirectional event-based communication
+- **PostgreSQL** - Relational database
+- **Redis** - In-memory data structure store for caching
+
+### Frontend
+- **Next.js** - React framework for production
+- **React** - JavaScript library for building user interfaces
+- **Tailwind CSS** - Utility-first CSS framework
+
+## 🔧 Installation
+
+### Prerequisites
+- Node.js (v16 or higher)
+- PostgreSQL
+- Redis
+- npm or yarn
+
+### Backend Setup
 ```bash
-$ npm install
+# Clone the repository
+git clone https://github.com/GiangTechiee/MessagingWebServer.git
+cd MessagingWebServer
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Update .env with your database and Redis configurations
+
+# Run database migrations
+npm run migration:run
+
+# Start the development server
+npm run start:dev
 ```
 
-## Compile and run the project
-
+### Frontend Setup
 ```bash
-# development
-$ npm run start
+# Clone the frontend repository (if separate)
+git clone [frontend-repo-url]
+cd messaging-web-client
 
-# watch mode
-$ npm run start:dev
+# Install dependencies
+npm install
 
-# production mode
-$ npm run start:prod
+# Set up environment variables
+cp .env.local.example .env.local
+# Update with your API endpoints
+
+# Start the development server
+npm run dev
 ```
 
-## Run tests
+## 🎯 Usage
 
-```bash
-# unit tests
-$ npm run test
+1. **Register/Login**: Create a new account or login with existing credentials
+2. **Join Rooms**: Create or join chat rooms
+3. **Real-time Chat**: Send and receive messages instantly
+4. **User Management**: View online users and chat history
 
-# e2e tests
-$ npm run test:e2e
+## 📚 API Documentation
 
-# test coverage
-$ npm run test:cov
+### Authentication Endpoints
+```
+POST /auth/register - Register new user
+POST /auth/login    - User login
+POST /auth/logout   - User logout
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+### Chat Endpoints
+```
+GET    /rooms           - Get all chat rooms
+POST   /rooms           - Create new room
+GET    /rooms/:id       - Get room details
+DELETE /rooms/:id       - Delete room
+GET    /messages/:roomId - Get room messages
+POST   /messages        - Send message
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### WebSocket Events
+```
+connection          - User connects to socket
+join_room          - Join specific room
+leave_room         - Leave specific room
+send_message       - Send message to room
+receive_message    - Receive message from room
+user_typing        - User typing indicator
+disconnect         - User disconnects
+```
 
-## Resources
+## 📁 Project Structure
 
-Check out a few resources that may come in handy when working with NestJS:
+```
+messaging-web-server/
+├── src/
+│   ├── auth/           # Authentication module
+│   ├── chat/           # Chat functionality
+│   ├── users/          # User management
+│   ├── database/       # Database configuration
+│   ├── common/         # Shared utilities
+│   └── main.ts         # Application entry point
+├── test/               # Test files
+├── migrations/         # Database migrations
+├── docker-compose.yml  # Docker configuration
+└── README.md
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## 🤝 Contributing
 
-## Support
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## 📄 License
 
-## Stay in touch
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## 👤 Author
 
-## License
+**Trần Trường Giang**
+- Email: giangtt8726@gmail.com
+- GitHub: [@GiangTechiee](https://github.com/GiangTechiee)
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+---
+
+⭐ Star this repository if you found it helpful!
