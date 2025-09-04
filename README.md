@@ -5,6 +5,7 @@ A real-time messaging web application built with modern technologies, featuring 
 ## 🚀 Demo
 
 **Live Demo**: [https://messaging-web-client.vercel.app](https://messaging-web-client.vercel.app)
+**Frontend Source**: [https://github.com/GiangTechiee/MessagingWebClient.git](https://github.com/GiangTechiee/MessagingWebClient.git)
 
 ## 📋 Table of Contents
 
@@ -75,8 +76,8 @@ npm run start:dev
 
 ### Frontend Setup
 ```bash
-# Clone the frontend repository (if separate)
-git clone [frontend-repo-url]
+# Clone the frontend repository 
+git clone [https://github.com/GiangTechiee/MessagingWebClient.git]
 cd messaging-web-client
 
 # Install dependencies
@@ -108,12 +109,12 @@ POST /auth/logout   - User logout
 
 ### Chat Endpoints
 ```
-GET    /rooms           - Get all chat rooms
-POST   /rooms           - Create new room
-GET    /rooms/:id       - Get room details
-DELETE /rooms/:id       - Delete room
-GET    /messages/:roomId - Get room messages
+GET    /conversations          - Get all conversations
+POST   /conversations          - Create new conversation
+GET    /conversations/:id      - Get conversation details
+GET    /messages/conversation/conversationId - Get conversation messages
 POST   /messages        - Send message
+PATCH  /messages        - Update message
 ```
 
 ### WebSocket Events
@@ -140,7 +141,6 @@ messaging-web-server/
 │   └── main.ts         # Application entry point
 ├── test/               # Test files
 ├── migrations/         # Database migrations
-├── docker-compose.yml  # Docker configuration
 └── README.md
 ```
 
